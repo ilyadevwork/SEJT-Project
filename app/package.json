@@ -1,18 +1,11 @@
 {
-  "name": "typescript-boilerplate",
-  "version": "1.0.2",
-  "description": "Basic Typescript Project Setup",
+  "name": "sejt_project",
+  "version": "0.0.1",
+  "description": "",
   "main": "dist/index.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/woof1001/ts-boiler.git"
-  },
-  "author": "~Woof~",
+  "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/woof1001/ts-boiler/issues"
-  },
-  "homepage": "https://github.com/woof1001/ts-boiler#readme",
+  "homepage": "",
   "scripts": {
     "start-dev": "ts-node-dev src/index.ts",
     "start": "tsc && node dist/index.js",
@@ -42,5 +35,8 @@
     "ts-node-dev": "^1.0.0-pre.56",
     "tslint": "^6.1.2",
     "typescript": "^3.9.7"
+  },
+  "dependencies": {
+    "axios": "^0.24.0"
   }
 }
