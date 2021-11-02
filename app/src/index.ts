@@ -10,7 +10,7 @@ const client = new axios.Axios({
 
 const userAgent = new UserAgent();
 
-const pullListings = async (s: URL): Promise<void> => {
+const pullListings = async (s: URL): Promise<string[]> => {
   try {
     // use client created earlier to pull html
     const { data } = await client.request({
@@ -32,10 +32,11 @@ const pullListings = async (s: URL): Promise<void> => {
           listings.push(`https://${s.hostname}${link}`);
         });
 
-      console.log(listings.length);
+      return listings;
     }
   } catch (e) {
     console.log(e);
+    return [];
   }
 };
 
@@ -43,4 +44,8 @@ const page = new URL(
   "https://www.indeed.com/jobs?as_and=Software%20Engineer&as_phr&as_any&as_not&as_ttl&as_cmp&jt=all&st&salary&radius=25&l=New%20York%2C%20NY&fromage=any&limit=50&sort&psf=advsrch&from=advancedsearch&vjk=d30411f29f9d9423"
 );
 
-pullListings(page);
+pullListings(page)
+  .then(listingArray => {
+    console.log(listingArray);
+  })
+  .catch(console.log);

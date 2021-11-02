@@ -7,7 +7,7 @@
   "license": "ISC",
   "homepage": "",
   "scripts": {
-    "start-dev": "ts-node-dev src/index.ts",
+    "start-dev": "ts-node-dev src/foo.ts",
     "start": "tsc && node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint '*/**/*.{js,ts,tsx}' --quiet --fix"
@@ -37,6 +37,8 @@
     "typescript": "^3.9.7"
   },
   "dependencies": {
-    "axios": "^0.24.0"
+    "axios": "^0.24.0",
+    "axios-cookiejar-support": "^2.0.3",
+    "tough-cookie": "^4.0.0"
   }
 }
