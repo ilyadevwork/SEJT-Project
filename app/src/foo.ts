@@ -54,7 +54,8 @@ class techBranch {
 // Designed to store all the information at the root (all the technologies and the amount of jobs listed for them).
 class techRoot {
   name: string;
-  jobs: Map<string, number>;
+  jobs: number;
+  skills: Map<string, number>;
   remote: Map<string, number>;
   salaryEst: Map<string, number>;
   jobType: Map<string, number>;
@@ -64,7 +65,8 @@ class techRoot {
 
   constructor() {
     this.name = " ";
-    this.jobs = new Map<string, number>([]);
+    this.jobs = 0;
+    this.skills = new Map<string, number>([]);
     this.remote = new Map<string, number>([]);
     this.salaryEst = new Map<string, number>([]);
     this.jobType = new Map<string, number>([]);
@@ -78,7 +80,6 @@ class techRoot {
 
 // Store element directory for selector.
 const filterMap = new Map([
-  ["Root", "ul#filter-taxo1-menu li a"],
   ["Remote", "ul#filter-remotejob-menu li a"],
   ["Salary Estimate", "ul#filter-salary-estimate-menu li a"],
   ["Job Type", "ul#filter-jobtype-menu li a"],
@@ -86,17 +87,12 @@ const filterMap = new Map([
   ["Location", "ul#filter-loc-menu li a"],
   ["Company", "ul#filter-cmp-menu li a"],
   ["Experiance Level", "ul#filter-explvl-menu li a"],
+  ["Total Jobs", "div#searchCountPages"],
 ]);
-
-const filterList = [];
 
 // Stores urls that point to states of indeed.com, from which information can be extracted in the context of the key.
 // Root defines the state from which the availible braches that can be explored are defined.
 const urlMap = new Map([
-  [
-    "Root",
-    "https://www.indeed.com/jobs?q=Software%20Engineer&l=New%20York%2C%20NY&vjk=94aeb151c39b9108",
-  ],
   [
     "Java",
     "https://www.indeed.com/jobs?q=Software+Engineer&l=New+York,+NY&taxo1=1X7zAik_RAWPuMD_To60Sg",
@@ -306,13 +302,13 @@ function getRandomInt(min, max) {
 //----------------------------------Main Functionality-----------------------------------------------------------------------
 
 // Axios request, then cheerio parses, stores into a map.
-const pullListings = async (url: string, filtr: string): Promise<Map<string, number>> => {
+const pullRootListings = async (): Promise<Map<string, number>> => {
   try {
     // Use axios client to make request.
     const { data } = await client.request({
       withCredentials: true,
       method: "GET",
-      url: url,
+      url: "https://www.indeed.com/jobs?q=Software%20Engineer&l=New%20York%2C%20NY&vjk=94aeb151c39b9108",
       headers: {
         "user-agent": userAgent.toString(),
       },
@@ -321,27 +317,61 @@ const pullListings = async (url: string, filtr: string): Promise<Map<string, num
     if (data) {
       const listings = new Map<string, number>([]);
       const $ = cheerio.load(data);
-      $(filtr).each((_, e) => {
-        // If we are expecting the tech type menu to be explored, it splits at the space.
-        if ((filtr = "ul#filter-taxo1-menu li a")) {
-          const myValue = $(e).text();
-          // Due to the format of the data, it we split at the space and, cut off the () from either side the value.
-          const tempString = myValue.split(" ");
-          tempString[1] = tempString[1].slice(1, -1);
-          listings.set(tempString[0], parseInt(tempString[1]));
-        } else {
-          // If we are expecting the other menus to be explored, it splits at the first '(' because there may exist logical spaces.
-          const myValue = $(e).text();
-          const tempString = myValue.split("(");
-          tempString[1] = tempString[1].slice(-1);
-          listings.set(tempString[0], parseInt(tempString[1]));
-        }
+      $("ul#filter-taxo1-menu li a").each((_, e) => {
+        const myValue = $(e).text();
+        // Due to the format of the data, it we split at the space and, cut off the () from either side the value.
+        const tempString = myValue.split(" ");
+        tempString[1] = tempString[1].slice(1, -1);
+        listings.set(tempString[0], parseInt(tempString[1]));
       });
       return listings;
     }
   } catch (e) {
     console.log(e);
     return new Map<string, number>([]);
+  }
+};
+
+// Runs after root completes so that we know which children must be requested.
+const pullChildrenListings = async (input: Map<string, number>): Promise<Array<techBranch>> => {
+  try {
+    const result = new Array<techBranch>();
+    // Passes in root map of keys.
+    for (const skill of input.keys()) {
+      // Checks if the key exists in the url map. Then passes in the url for the according skill.
+      if (urlMap.has(skill)) {
+        const { data } = await client.request({
+          withCredentials: true,
+          method: "GET",
+          url: urlMap.get(skill),
+          headers: {
+            "user-agent": userAgent.toString(),
+          },
+        });
+
+        // If the data is valid..
+        if (data) {
+          // For every differant filter, iterate through each sub catagory and record results to map.
+          const listings = new techBranch();
+          listings.name = skill;
+          for (const filter of filterMap.keys()) {
+            const $ = cheerio.load(data);
+            // If we are expecting the other menus to be explored, it splits at the first '(' because there may exist logical spaces.\
+            /*$(filterMap.get(filter)).each((_, e) => {
+                const myValue = $(e).text();
+                const tempString = myValue.split("(");
+                tempString[1] = tempString[1].slice(-1);
+                listings.remote.set(tempString[0], parseInt(tempString[1]));
+                break;*/
+          }
+          //techBranch.get(key).set(tempString[0], parseInt(tempString[1]));
+        }
+      }
+      return result;
+    }
+  } catch (e) {
+    console.log(e);
+    return new Array<techBranch>();
   }
 };
 
@@ -355,15 +385,15 @@ const comparator = (final: Map<string, number>, temp: Map<string, number>) => {
     } else final.set(key, temp.get(key));
   }
 };
+
 // Utilizes pullListings to fetch values, and comparator to store maximums of each value, by 10 attempts.
 // This amount of attempts is not verified to be successful every time so we will attempt to re run the loop if its unsuccessful.
 const pullTrueRootListings = async () => {
-  const trueListings = new Map<string, number>([]);
   try {
-    const trueListings = await pullListings(urlMap.get("Root"), filterMap.get("Root"));
+    const trueListings = await pullRootListings();
     console.log(trueListings);
     for (let i = 0; i < 9; i++) {
-      const scrapeResults = await pullListings(urlMap.get("Root"), filterMap.get("Root"));
+      const scrapeResults = await pullRootListings();
       comparator(trueListings, scrapeResults);
       await delay(getRandomInt(30000, 60000));
     }
@@ -374,24 +404,16 @@ const pullTrueRootListings = async () => {
 };
 
 const pullTrueChildrenListings = async (input: Map<string, number>) => {
-  const trueListings = new Map<string, number>([]);
+  const trueListings = new Array<Map<string, number>>();
   try {
     for (const key of input.keys()) {
       if (urlMap.has(key)) {
         for (const key2 of filterMap.keys()) {
           if (key2 == "Root") continue;
           else {
-            pullListings();
           }
         }
       }
-    }
-    const trueListings = await pullListings(urlMap.get("Root"), filterMap.get("Root"));
-    console.log(trueListings);
-    for (let i = 0; i < 9; i++) {
-      const scrapeResults = await pullListings(urlMap.get("Root"), filterMap.get("Root"));
-      comparator(trueListings, scrapeResults);
-      await delay(getRandomInt(30000, 60000));
     }
     return trueListings;
   } catch (err) {
@@ -406,7 +428,7 @@ const roots = new techRoot();
 
 pullTrueRootListings()
   .then(a => {
-    roots.jobs = a;
+    roots.skills = a;
     console.log("Finished");
   })
   .catch(console.log);
