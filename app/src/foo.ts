@@ -2,7 +2,6 @@ import axios from "axios";
 import UserAgent from "user-agents";
 import cheerio from "cheerio";
 import dotenv from "dotenv";
-import { env } from "process";
 import { Connection, Request, TYPES } from "tedious";
 
 /*
@@ -125,10 +124,10 @@ const jobsSnapshot = {
 }*/
 
 //---------------------------------------Data & Configs------------------------------------------------------------------
-const envVar = dotenv.config();
+const result = dotenv.config();
 
-if (env.error) {
-  throw envVar.error;
+if (result.error) {
+  throw result.error;
 }
 
 // Store element directory for selector.
@@ -323,6 +322,7 @@ const dbConfig = {
     },
   },
   options: {
+    port: 1433,
     // If you are on Microsoft Azure, you need encryption:
     encrypt: true,
     database: process.env.DB_DB, //update me
@@ -504,7 +504,7 @@ const pullRootListings = async (): Promise<techRoot> => {
         }
 
         // If the skills array is 0 even after the first iteration, the request was likey blocked or didn't work program should exit.
-        if (result.skills.size == 0) throw "Bad Request Try Again";
+        if (result.skills.size == 0) throw new Error("Bad Request Try Again");
         await delay(getRandomInt(30000, 60000));
       }
     }
@@ -527,7 +527,7 @@ const pullChildrenListings = async (input: Map<string, number>): Promise<Array<t
       // Checks if the key exists in the url map. Then passes in the url for the according skill.
       if (urlMap.has(skill)) {
         const listings = new techBranch();
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 0; i++) {
           const { data } = await client.request({
             withCredentials: true,
             method: "GET",
@@ -662,6 +662,7 @@ const comparator = (final: Map<string, number>, temp: Map<string, number>) => {
 // Utilizes pullListings to fetch values, and comparator to store max of each value, runs untill it completes. Generally takes < 10 attmps.
 // This amount of attempts is not verified to be successful every time so we will attempt to re run the loop if its unsuccessful.
 //------------------------------------------Main Thread-------------------------------------------------------------
+
 pullRootListings()
   .then(result => {
     // Append new empty branch onto the array, and then fill it with information from our classes.
@@ -696,6 +697,7 @@ pullRootListings()
     console.log("Root Finished \n");
     // Announce completion of first part.
     pullChildrenListings(result.skills).then(stuff => {
+      if (result.skills.size == 0) throw "Bad Req";
       for (let i = 0; i < stuff.length; i++) {
         jobsSnapshot.data.techBranch.push(spawnBranch());
         jobsSnapshot.data.techBranch[i].name = stuff[i].name;
@@ -722,52 +724,25 @@ pullRootListings()
         }
       }
       console.log("Children Finished \n");
+
+      // Stringifies jobsSnapshot for storage into DB.
+      const jobsString = JSON.stringify(jobsSnapshot);
+      const connection = new Connection(dbConfig);
+
+      connection.connect();
+
+      const request = new Request("INSERT dbo.JobsCollection (@EntryDate, @EntryData);", function (
+        err
+      ) {
+        if (err) {
+          console.log(err);
+        }
+      });
+      request.addParameter("EntryDate", TYPES.DateTime, new Date());
+      request.addParameter("EntryData", TYPES.VarChar, jobsString);
+      connection.execSql(request);
+
+      connection.close();
     });
   })
   .catch(console.log);
-// Stringifies jobsSnapshot for storage into DB.
-const jobsString = JSON.stringify(jobsSnapshot);
-
-const connection = new Connection(dbConfig);
-
-connection.on("connect", err => {
-  if (err) {
-    console.log("Connection Failed!");
-    throw err;
-  } else {
-    prepareSQL();
-  }
-});
-
-// Preparing and Executing a SQL
-//--------------------------------------------------------------------------------
-function prepareSQL() {
-  const sql = `INSERT INTO JobsCollection VALUES (@date, @json)`;
-
-  const request = new Request(sql, (err, rowCount) => {
-    if (err) {
-      throw err;
-    }
-
-    executePreparedSQL(request);
-  });
-
-  // Must add parameters
-  request.addParameter("date", TYPES.DateTime, new Date());
-  request.addParameter("json", TYPES.VarChar, jobsString);
-
-  request.on("prepared", () => {
-    console.log("request prepared");
-  });
-
-  connection.prepare(request);
-}
-
-function executePreparedSQL(request) {
-  connection.execute(request, { date: new Date(), json: jobsString });
-
-  request.on("requestCompleted", () => {
-    console.log("DONE!");
-    connection.close();
-  });
-}
