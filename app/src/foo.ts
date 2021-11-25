@@ -504,7 +504,10 @@ const pullRootListings = async (): Promise<techRoot> => {
         }
 
         // If the skills array is 0 even after the first iteration, the request was likey blocked or didn't work program should exit.
-        if (result.skills.size == 0) throw new Error("Bad Request Try Again");
+        if (result.skills.size == 0) {
+          console.log("Bad Request");
+          process.exit(2);
+        }
         await delay(getRandomInt(30000, 60000));
       }
     }
@@ -518,6 +521,7 @@ const pullRootListings = async (): Promise<techRoot> => {
 
 // Runs after root completes so that we know which children must be requested.
 const pullChildrenListings = async (input: Map<string, number>): Promise<Array<techBranch>> => {
+  if (input.size == 0) throw Error("Root request was bad.");
   try {
     let i = 0;
     const result = new Array<techBranch>();
@@ -527,7 +531,7 @@ const pullChildrenListings = async (input: Map<string, number>): Promise<Array<t
       // Checks if the key exists in the url map. Then passes in the url for the according skill.
       if (urlMap.has(skill)) {
         const listings = new techBranch();
-        for (let i = 0; i < 0; i++) {
+        for (let i = 0; i < 3; i++) {
           const { data } = await client.request({
             withCredentials: true,
             method: "GET",
@@ -697,7 +701,6 @@ pullRootListings()
     console.log("Root Finished \n");
     // Announce completion of first part.
     pullChildrenListings(result.skills).then(stuff => {
-      if (result.skills.size == 0) throw "Bad Req";
       for (let i = 0; i < stuff.length; i++) {
         jobsSnapshot.data.techBranch.push(spawnBranch());
         jobsSnapshot.data.techBranch[i].name = stuff[i].name;
@@ -727,22 +730,35 @@ pullRootListings()
 
       // Stringifies jobsSnapshot for storage into DB.
       const jobsString = JSON.stringify(jobsSnapshot);
+
+      // Tedious connection instatiation.
       const connection = new Connection(dbConfig);
 
-      connection.connect();
+      // Database listener, on function connect, configure request, and execute, once finished callback returns rowcount inserted.
+      connection.on("connect", function (err) {
+        const request = new Request(
+          `INSERT dbo.JobsCollection (EntryDate, EntryData) VALUES (@EntryDate, @EntryData)`,
+          function (err, rowCount) {
+            if (err) {
+              console.log("ERROR");
+              console.log(err);
+            } else {
+              console.log(rowCount + " rows");
+            }
+          }
+        );
 
-      const request = new Request("INSERT dbo.JobsCollection (@EntryDate, @EntryData);", function (
-        err
-      ) {
+        request.addParameter("EntryDate", TYPES.DateTime, new Date());
+        request.addParameter("EntryData", TYPES.NVarChar, jobsString);
+
+        connection.execSql(request);
+      });
+
+      connection.connect(function (err) {
         if (err) {
-          console.log(err);
+          console.log("Database connection Rejcted.");
         }
       });
-      request.addParameter("EntryDate", TYPES.DateTime, new Date());
-      request.addParameter("EntryData", TYPES.VarChar, jobsString);
-      connection.execSql(request);
-
-      connection.close();
     });
   })
   .catch(console.log);
