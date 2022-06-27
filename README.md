@@ -4,6 +4,10 @@ SEJT is an analytical utility for the purpose of visualizing trends in the softw
 
 This repository is strictly for the `data scraper`. Foo.ts contains the logic necessary to collect metadata from Indeed.com and store it in a database.
 
+```
+Built With: Typescript / Axios / Jquery / Cheerio
+```
+
 User Interface: [Repository](https://github.com/ilyadevwork/SEJT-Project-FE)
 
 ## Installation
