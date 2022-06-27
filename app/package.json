@@ -1,9 +1,9 @@
 {
   "name": "sejt_project",
   "version": "0.0.1",
-  "description": "",
+  "description": "Script that parses Indeed.com job listings and saves them to a database.",
   "main": "dist/index.js",
-  "author": "",
+  "author": "Ilya Shvabskiy",
   "license": "ISC",
   "homepage": "",
   "scripts": {
